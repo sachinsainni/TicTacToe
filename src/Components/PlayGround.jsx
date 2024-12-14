@@ -1,19 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { Card, CardHeader, CardBody, CardFooter, Button } from "@nextui-org/react";
 import confetti from 'canvas-confetti';
+import { FaGamepad } from "react-icons/fa";
 
 export default function PlayGround() {
-    const [state, setState] = useState(Array(9).fill(null))
-    const [XisNext, setXisNext] = useState(true)
+    const [state, setState] = useState(Array(9).fill(null));
+    const [XisNext, setXisNext] = useState(true);
+    const [gameHistory, setGameHistory] = useState([]);
 
-    const handleClick = () => {
-        const duration = 15 * 100;
+    const triggerConfetti = useCallback(() => {
+        const duration = 1500;
         const animationEnd = Date.now() + duration;
         const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
 
-        function randomInRange(min, max) {
-            return Math.random() * (max - min) + min;
-        }
+        const randomInRange = (min, max) => Math.random() * (max - min) + min;
 
         const interval = setInterval(() => {
             const timeLeft = animationEnd - Date.now();
@@ -23,7 +23,7 @@ export default function PlayGround() {
             }
 
             const particleCount = 50 * (timeLeft / duration);
-            // since particles fall down, start a bit higher than random
+            
             confetti({
                 ...defaults,
                 particleCount,
@@ -35,92 +35,134 @@ export default function PlayGround() {
                 origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
             });
         }, 250);
-    };
+    }, []);
 
-    const checkWinner = () => {
+    const checkWinner = useCallback(() => {
         const winnerLogic = [
-            [0, 1, 2],
-            [3, 4, 5],
-            [6, 7, 8],
-            [0, 3, 6],
-            [1, 4, 7],
-            [2, 5, 8],
-            [0, 4, 8],
-            [2, 4, 6]
-        ]
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],
+            [0, 4, 8], [2, 4, 6]
+        ];
 
-        for (let logic of winnerLogic) {
-            const [a, b, c] = logic
-            if (state[a] !== null && state[a] === state[b] && state[b] === state[c]) {
-                handleClick()
-                return true
+        for (let [a, b, c] of winnerLogic) {
+            if (state[a] && state[a] === state[b] && state[b] === state[c]) {
+                triggerConfetti();
+                return state[a];
             }
         }
-        return false
-    }
 
-    const isWinner = checkWinner()
+        if (state.every(square => square !== null)) {
+            return 'draw';
+        }
+
+        return null;
+    }, [state, triggerConfetti]);
+
+    const resetGame = () => {
+        setGameHistory(prev => [...prev, { winner: gameStatus, board: [...state] }]);
+        setState(Array(9).fill(null));
+        setXisNext(true);
+    };
 
     const onBoxClick = (index) => {
-        if (state[index]) {
-            return
-        }
-        const copyState = [...state]
-        copyState[index] = XisNext ? "X" : "O"
-        setState(copyState)
-        setXisNext(!XisNext)
-    }
+        if (state[index] || gameStatus) return;
+
+        setState(prev => {
+            const newState = [...prev];
+            newState[index] = XisNext ? "X" : "O";
+            return newState;
+        });
+        setXisNext(!XisNext);
+    };
+
+    const gameStatus = checkWinner();
 
     return (
-        <div className="flex justify-center my-4">
-            {isWinner ?
-                <div className=" space-y-3 my-2">
-                    <div className="text-3xl text-center">
-                        {XisNext ? "O" : "X"} Player Won !
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 to-blue-100 flex flex-col items-center py-8">
+            <FaGamepad className="text-3xl text-purple-600 mr-2 flex justify-center " />
+            <div className="mb-6 text-center">
+                <h1 className="text-4xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600">
+                    Tic Tac Toe
+                </h1>
+                {gameHistory.length > 0 && (
+                    <p className="text-sm text-gray-600 bg-white/50 px-4 py-2 rounded-full">
+                        Games played: {gameHistory.length}
+                    </p>
+                )}
+            </div>
+
+            {gameStatus ? (
+                <div className="space-y-4 my-4 bg-white/80 p-8 rounded-2xl shadow-xl backdrop-blur-sm">
+                    <div className="text-4xl font-bold text-center bg-gradient-to-r from-purple-600 to-blue-600 text-transparent bg-clip-text">
+                        {gameStatus === 'draw' 
+                            ? "It's a Draw!" 
+                            : `${gameStatus} Player Won!`}
                     </div>
                     <div className="flex justify-center">
-                        <Button color="success" onClick={() => { setState(Array(9).fill(null)) }}>
+                        <Button 
+                            color="success"
+                            onClick={resetGame}
+                            className="px-8 py-3 text-lg font-semibold shadow-lg hover:scale-105 transition-transform"
+                        >
                             Play Again
                         </Button>
                     </div>
                 </div>
-                :
-                <>
-                    <Card className="max-w-[500px]">
-                        <CardHeader className="px-3 py-1 text-medium justify-center flex-row">
-                            {/* <div className=""> */}
-                            <p>{XisNext ? "X" : "O"} Player </p>
-                            &nbsp;
-                            <p className=" text-blue-600"> have Next Move</p>
-
-                            {/* </div> */}
-                        </CardHeader>
-                        <CardBody className="grid grid-cols-3">
-                            <div className="p-3"><Square value={state[0]} data='0' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[1]} data='1' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[2]} data='2' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[3]} data='3' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[4]} data='4' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[5]} data='5' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[6]} data='6' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[7]} data='7' onClick={onBoxClick} /></div>
-                            <div className="p-3"><Square value={state[8]} data='8' onClick={onBoxClick} /></div>
-                        </CardBody>
-                        <CardFooter className="gap-3">
-
-                        </CardFooter>
-                    </Card>
-                </>
-            }
+            ) : (
+                <Card className="max-w-[500px] w-full bg-white/90 backdrop-blur-sm shadow-xl">
+                    <CardHeader className="px-6 py-4 justify-center border-b">
+                        <div className="text-xl font-semibold">
+                            <span className={`${XisNext ? 'text-blue-600' : 'text-rose-600'}`}>
+                                {XisNext ? "X" : "O"}
+                            </span>
+                            <span className="text-gray-700"> Player's Turn</span>
+                        </div>
+                    </CardHeader>
+                    <CardBody className="grid grid-cols-3 gap-3 p-6 bg-gradient-to-br from-gray-50 to-gray-100">
+                        {state.map((value, index) => (
+                            <Square 
+                                key={index}
+                                value={value}
+                                onClick={() => onBoxClick(index)}
+                            />
+                        ))}
+                    </CardBody>
+                    <CardFooter className="justify-center p-4 border-t">
+                        <Button 
+                            color="danger"
+                            variant="ghost"
+                            onClick={resetGame}
+                            className="px-6 hover:scale-105 transition-transform"
+                        >
+                            Reset Game
+                        </Button>
+                    </CardFooter>
+                </Card>
+            )}
         </div>
     );
 }
 
+const Square = React.memo(({ value, onClick }) => (
+    <Button 
+        className={`
+            aspect-square text-2xl font-bold h-auto
+            transition-all duration-200 ease-in-out
+            hover:scale-105 shadow-md 
+            ${value === 'X' ? 'bg-blue-500 hover:bg-blue-600' : ''}
+            ${value === 'O' ? 'bg-rose-500 hover:bg-rose-600' : ''}
+            ${!value ? 'bg-white hover:bg-gray-100' : ''}
+        `}
+        onClick={onClick}
+    >
+        <span className={`
+            ${value === 'X' ? 'text-white' : ''}
+            ${value === 'O' ? 'text-white' : ''}
+            ${!value ? 'text-gray-400' : ''}
+        `}>
+            {value}
+        </span>
+    </Button>
+));
 
-
-export function Square({ value, onClick, data }) {
-    return (
-        <Button className=""   onClick={() => { onClick(data) }} >{value}</Button>
-    )
-}
-
+Square.displayName = 'Square';

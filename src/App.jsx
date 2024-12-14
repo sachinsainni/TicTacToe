@@ -6,7 +6,7 @@ function App() {
 
   return (
     <div className=''>
-      <MyNavbar/>
+      {/* <MyNavbar/> */}
       <PlayGround />
     </div>
   )
